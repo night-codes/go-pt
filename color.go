@@ -5,27 +5,27 @@ type Color struct {
 	r, g, b float64
 }
 
-// AddColor adds color values from other color values
-func (c Color) AddColor(c1 Color) Color {
+// Add adds color values from other color values
+func (c Color) Add(c1 Color) Color {
 	return Color{c.r + c1.r, c.g + c1.g, c.b + c1.b}
 }
 
-// SubtractColor subtracts color values from other color values
-func (c Color) SubtractColor(c1 Color) Color {
+// Subtract subtracts color values from other color values
+func (c Color) Subtract(c1 Color) Color {
 	return Color{c.r - c1.r, c.g - c1.g, c.b - c1.b}
 }
 
-// MulScalarColor multiplies color values by a scalar
-func (c Color) MulScalarColor(s float64) Color {
+// MulScalar multiplies color values by a scalar
+func (c Color) MulScalar(s float64) Color {
 	return Color{c.r * s, c.g * s, c.b * s}
 }
 
-// DivScalarColor divides color values by a scalar
-func (c Color) DivScalarColor(s float64) Color {
+// DivScalar divides color values by a scalar
+func (c Color) DivScalar(s float64) Color {
 	return Color{c.r / s, c.g / s, c.b / s}
 }
 
-// MulColor returns Hadamard product of two colors
-func (c Color) MulColor(c1 Color) Color {
+// Mul returns Hadamard product of two colors
+func (c Color) Mul(c1 Color) Color {
 	return Color{c.r * c1.r, c.g * c1.g, c.b * c1.b}
 }

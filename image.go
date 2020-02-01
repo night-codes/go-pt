@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -26,7 +27,7 @@ func SaveImage(canvas []Color, width, height, maxValue int, fileName string) {
 	_, err = fmt.Fprintf(w, "P3\n%d %d\n%d\n", width, height, maxValue)
 	check(err)
 
-	for y := 0; y < height; y++ {
+	for y := height - 1; y >= 0; y-- {
 		for x := 0; x < width; x++ {
 			if canvas[y*width+x].r > 1.0 {
 				canvas[y*width+x].r = 1.0
@@ -42,9 +43,9 @@ func SaveImage(canvas []Color, width, height, maxValue int, fileName string) {
 		}
 	}
 
-	for y := 0; y < height; y++ {
+	for y := height - 1; y >= 0; y-- {
 		for x := 0; x < width; x++ {
-			_, err := fmt.Fprintf(w, "%d %d %d ", int(canvas[y*width+x].r*255), int(canvas[y*width+x].g*255), int(canvas[y*width+x].b*255))
+			_, err := fmt.Fprintf(w, "%d %d %d ", int(math.Sqrt(canvas[y*width+x].r)*255), int(math.Sqrt(canvas[y*width+x].g)*255), int(math.Sqrt(canvas[y*width+x].b)*255))
 			check(err)
 		}
 		_, err := fmt.Fprint(w, "\n")

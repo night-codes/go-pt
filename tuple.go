@@ -135,5 +135,22 @@ func (v Tuple) Shear(xy, xz, yx, yz, zx, zy float64) Tuple {
 
 // Reflection returns reflection vector
 func (v Tuple) Reflection(n Tuple) Tuple {
-	return v.Subtract(n).MulScalar(2).MulScalar(v.Dot(n))
+	return v.Subtract(n.MulScalar(2).MulScalar(v.Dot(n)))
+}
+
+func (v Tuple) Refraction(n Tuple, niOverNt float64, refracted *Tuple) bool {
+	uv := v.Normalize()
+	dt := uv.Dot(n)
+	discriminant := 1.0 - niOverNt*niOverNt*(1.0-dt*dt)
+	if discriminant > 0 {
+		*refracted = (uv.Subtract(n.MulScalar(dt))).MulScalar(niOverNt).Subtract(n).MulScalar(math.Sqrt(discriminant))
+		return true
+	}
+	return false
+}
+
+func Schlick(cos, ior float64) float64 {
+	r0 := (1.0 - ior) / (1.0 + ior)
+	r0 = r0 * r0
+	return r0 + (1.0-r0)*math.Pow(1-cos, 5)
 }
