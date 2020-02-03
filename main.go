@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	hsize   = 2000
-	vsize   = 1280
-	samples = 2048
+	hsize   = 480
+	vsize   = 320
+	samples = 256
 	depth   = 8
 )
 

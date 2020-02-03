@@ -1,6 +1,8 @@
 package main
 
-import "math"
+import (
+	"math"
+)
 
 const (
 	Metal      = iota
@@ -74,9 +76,6 @@ func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *R
 	} else if m.material == Emission {
 		return true
 	} else if m.material == Plastic {
-		target := rec.p.Add(rec.normal).Add(RandInUnitSphere())
-		// *scattered = Ray{rec.p, target.Subtract(rec.p)}
-
 		var outwardNormal Tuple
 		var refracted Tuple
 
@@ -84,6 +83,7 @@ func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *R
 		var reflectProbability float64
 		var cosine float64
 
+		*attenuation = m.albedo
 		reflected := r.direction.Reflection(rec.normal)
 
 		if r.direction.Dot(rec.normal) > 0 {
@@ -105,6 +105,7 @@ func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *R
 		if RandFloat() < reflectProbability {
 			*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere().MulScalar(m.roughness))}
 		} else {
+			target := rec.p.Add(rec.normal).Add(RandInUnitSphere())
 			*scattered = Ray{rec.p, target.Subtract(rec.p)}
 		}
 
