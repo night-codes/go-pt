@@ -11,7 +11,7 @@ import (
 const (
 	hsize   = 480
 	vsize   = 320
-	samples = 256
+	samples = 8
 	depth   = 8
 )
 
@@ -42,10 +42,14 @@ func main() {
 	fmt.Printf("Rendering %dx%d at %d samples\n", hsize, vsize, samples)
 
 	// camera := getCamera(Tuple{0, 0, -1, 0}, Tuple{0, 0, 1, 0}, Tuple{0, 1, 0, 0}, 90, float64(hsize)/float64(vsize))
-	cameraPosition := Tuple{0, 0.25, -0.5, 0}
-	cameraDirection := Tuple{0, 0.25, -1, 0}
+	cameraPosition := Tuple{0, 0.25, 0, 0}
+	cameraDirection := Tuple{0, 0.25, 1, 0}
+	// cameraPosition := Tuple{-1.5, 0.25, 0.25, 0}
+	// cameraDirection := Tuple{-2, 0.25, 0, 0}
 	// cameraPosition := Tuple{-2, 2, 1, 0}
-	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize))
+	focusDistance := Tuple{0.75, -0.25, 1, 0}.Subtract(cameraDirection).Magnitude()
+	// focusDistance := 2.0
+	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize), 0.1, focusDistance)
 	// camera := getCamera(Tuple{0, 0, 0, 0}, Tuple{0, 0, 1, 0}, Tuple{0, -1, 0, 0}, 100, float64(hsize)/float64(vsize))
 
 	fmt.Printf("%v\n", camera)
@@ -213,7 +217,7 @@ func main() {
 		// wg.Add(1)
 		// go func(s int) {
 		for y := vsize - 1; y >= 0; y-- {
-			for x := hsize - 1; x >= 0; x-- {
+			for x := 0; x < hsize; x++ {
 				col := Color{0, 0, 0}
 				u := (float64(x) + RandFloat()) / float64(hsize)
 				v := (float64(y) + RandFloat()) / float64(vsize)
