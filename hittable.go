@@ -85,14 +85,13 @@ func (tri *Triangle) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
 		return false
 	}
 	t := f * edge2.Dot(q)
-	if t > Epsilon && t < 1-Epsilon {
-		if t < tMax && t > tMin {
-			*&rec.p = r.origin.Add(r.direction.MulScalar(t))
-			*&rec.t = t
-			*&rec.material = tri.material
-			*&rec.normal = edge1.Cross(edge2)
-			return true
-		}
+	if t < tMax && t > tMin {
+		*&rec.p = r.origin.Add(r.direction.MulScalar(t))
+		*&rec.t = t
+		*&rec.material = tri.material
+		// *&rec.normal = Tuple{0, 1, 0, 1}
+		*&rec.normal = edge1.Cross(edge2)
+		return true
 	}
 	return false
 }
