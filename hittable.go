@@ -14,7 +14,7 @@ type HittableList struct {
 }
 
 func (h *HittableList) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
-	tempRec := HitRecord{0.0, Tuple{0, 0, 0, 0}, Tuple{0, 0, 0, 0}, Material{-1, Color{0, 0, 0}, 0, 0}}
+	var tempRec HitRecord
 	hitAnything := false
 	closestSoFar := tMax
 	for i := 0; i < len(h.hits); i++ {

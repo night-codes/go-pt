@@ -12,17 +12,17 @@ func getCamera(lookFrom, lookAt, up Tuple, fov, aspect float64) Camera {
 	theta := fov * math.Pi / 180
 	halfHeight := math.Tan(theta / 2)
 	halfWidth := aspect * halfHeight
-	origin := lookFrom
+	c.origin = lookFrom
 	w = (lookFrom.Subtract(lookAt)).Normalize()
 	u = up.Cross(w).Normalize()
 	v = w.Cross(u)
-	c.lowerLeftCorner = origin.Subtract(u.MulScalar(halfWidth)).Subtract(v.MulScalar(halfHeight).Subtract(w))
-	c.horizontal = u.MulScalar(halfWidth).MulScalar(2)
-	c.vertical = v.MulScalar(halfHeight).MulScalar(2)
+	c.lowerLeftCorner = c.origin.Add(u.MulScalar(-(halfWidth))).Add(v.MulScalar(-(halfHeight))).Add(w)
+	c.horizontal = u.MulScalar(2 * halfWidth)
+	c.vertical = v.MulScalar(2 * halfHeight)
 
 	return c
 }
 
 func (c Camera) getRay(s, t float64) Ray {
-	return Ray{c.origin, c.lowerLeftCorner.Add(c.horizontal.MulScalar(s).Add(c.vertical.MulScalar(t).Subtract(c.origin)))}
+	return Ray{c.origin, c.lowerLeftCorner.Add(c.horizontal.MulScalar(s)).Add(c.vertical.MulScalar(t)).Subtract(c.origin)}
 }

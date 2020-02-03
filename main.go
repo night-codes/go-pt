@@ -9,18 +9,23 @@ import (
 )
 
 const (
-	hsize   = 800
-	vsize   = 600
-	samples = 64
+	hsize   = 2000
+	vsize   = 1280
+	samples = 2048
+	depth   = 8
 )
 
-func color(r Ray, world *HittableList, depth int) Color {
+func color(r Ray, world *HittableList, d int) Color {
 	rec := HitRecord{}
 	if world.hit(r, Epsilon, math.MaxFloat64, &rec) {
 		var attenuation Color
 		var scattered Ray
-		if depth < 50 && rec.material.Scatter(r, rec, &attenuation, &scattered) {
-			return attenuation.Mul(color(scattered, world, depth+1))
+		if d < depth && rec.material.Scatter(r, rec, &attenuation, &scattered) {
+			if rec.material.material == Emission {
+				return rec.material.albedo
+			} else {
+				return attenuation.Mul(color(scattered, world, d+1))
+			}
 		} else {
 			return Color{0, 0, 0}
 		}
@@ -33,59 +38,161 @@ func color(r Ray, world *HittableList, depth int) Color {
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	temp := make([][]Color, samples)
-	for i := 0; i < samples; i++ {
-		canvas := make([]Color, vsize*hsize)
-		temp[i] = canvas
-	}
+	canvas := make([]Color, vsize*hsize)
 	fmt.Printf("Rendering %dx%d at %d samples\n", hsize, vsize, samples)
-	start := time.Now()
 
-	// camera := getCamera(Tuple{-2, 2, 1, 0}, Tuple{0, 0, -1, 0}, Tuple{0, 1, 0, 0}, 90, float64(hsize)/float64(vsize))
-	camera := getCamera(Tuple{0, 0, 0, 0}, Tuple{0, 0, 1, 0}, Tuple{0, -1, 0, 0}, 100, float64(hsize)/float64(vsize))
+	// camera := getCamera(Tuple{0, 0, -1, 0}, Tuple{0, 0, 1, 0}, Tuple{0, 1, 0, 0}, 90, float64(hsize)/float64(vsize))
+	cameraPosition := Tuple{0, 0.25, -0.5, 0}
+	cameraDirection := Tuple{0, 0.25, -1, 0}
+	// cameraPosition := Tuple{-2, 2, 1, 0}
+	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize))
+	// camera := getCamera(Tuple{0, 0, 0, 0}, Tuple{0, 0, 1, 0}, Tuple{0, -1, 0, 0}, 100, float64(hsize)/float64(vsize))
 
 	fmt.Printf("%v\n", camera)
 
 	list := []Sphere{}
-	for i := 0; i < 10; i++ {
-		list = append(list, Sphere{
-			Tuple{(RandFloat() - 0.5) * 2, (RandFloat() - 0.5), (RandFloat()-0.5)*2 - 2, 0}, RandFloat() * 0.25,
-			Material{Metal, Color{RandFloat(), RandFloat(), RandFloat()}, RandFloat(), 0},
-		})
-	}
+	// list = append(list, Sphere{
+	// 	Tuple{0.25, -0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
+	// })
 
-	for i := 0; i < 10; i++ {
-		list = append(list, Sphere{
-			Tuple{(RandFloat() - 0.5) * 2, (RandFloat() - 0.5), (RandFloat()-0.5)*2 - 2, 0}, RandFloat() * 0.25,
-			Material{Lambertian, Color{RandFloat(), RandFloat(), RandFloat()}, RandFloat(), 0},
-		})
-	}
+	// list = append(list, Sphere{
+	// 	Tuple{-0.25, -0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
+	// })
 
-	for i := 0; i < 10; i++ {
-		list = append(list, Sphere{
-			Tuple{(RandFloat() - 0.5) * 2, (RandFloat() - 0.5), (RandFloat()-0.5)*2 - 2, 0}, RandFloat() * 0.25,
-			Material{Dielectric, Color{RandFloat(), RandFloat(), RandFloat()}, RandFloat(), 1 + RandFloat()},
-		})
-	}
 	// list = append(list, Sphere{
-	// 	Tuple{0, 0, -2, 0}, 0.5,
-	// 	Material{Metal, Color{0.8, 0.186, 0.082}, 0.5, 0},
+	// 	Tuple{0.25, 0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Metal, Color{1, 1, 1}, 0, 0, false},
 	// })
+
 	// list = append(list, Sphere{
-	// 	Tuple{0, 2, -2, 0}, 0.5,
-	// 	Material{Metal, Color{10, 10, 10}, 0.5, 0},
+	// 	Tuple{-0.25, 0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Plastic, Color{1, 1, 1}, 0, 1.45, false},
 	// })
-	// list = append(list, Sphere{
-	// 	Tuple{1, 0, -2, 0}, 0.5,
-	// 	Material{Metal, Color{0.9, 0.736, 0.356}, 0.5, 0},
-	// })
-	// list = append(list, Sphere{
-	// 	Tuple{-1, 0, -2, 0}, 0.5,
-	// 	Material{Metal, Color{0.95, 0.95, 0.95}, 0.05, 0},
-	// })
+
+	// diel
+
+	list = append(list, Sphere{
+		Tuple{0.75, -0.25, 1, 0},
+		0.25,
+		Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{0.25, -0.25, 1, 0},
+		0.25,
+		Material{Dielectric, Color{1, 1, 1}, 0.02, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.25, -0.25, 1, 0},
+		0.25,
+		Material{Dielectric, Color{1, 1, 1}, 0.1, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.75, -0.25, 1, 0},
+		0.25,
+		Material{Dielectric, Color{1, 1, 1}, 0.3, 1.45, false},
+	})
+
+	// metal
+
+	list = append(list, Sphere{
+		Tuple{0.75, 0.25, 1, 0},
+		0.25,
+		Material{Metal, Color{1, 1, 1}, 0, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{0.25, 0.25, 1, 0},
+		0.25,
+		Material{Metal, Color{1, 1, 1}, 0.1, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.25, 0.25, 1, 0},
+		0.25,
+		Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.75, 0.25, 1, 0},
+		0.25,
+		Material{Metal, Color{1, 1, 1}, 0.8, 1.45, false},
+	})
+
+	// plastic
+
+	list = append(list, Sphere{
+		Tuple{0.75, 0.75, 1, 0},
+		0.25,
+		Material{Plastic, Color{1, 1, 1}, 0, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{0.25, 0.75, 1, 0},
+		0.25,
+		Material{Plastic, Color{1, 1, 1}, 0.02, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.25, 0.75, 1, 0},
+		0.25,
+		Material{Plastic, Color{1, 1, 1}, 0.05, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.75, 0.75, 1, 0},
+		0.25,
+		Material{Plastic, Color{1, 1, 1}, 0.1, 1.45, false},
+	})
+
+	// BOTTOM
 	list = append(list, Sphere{
 		Tuple{0, -10000.5, -1, 0}, 10000,
-		Material{Lambertian, Color{0.5, 0.5, 0.5}, 0, 0},
+		Material{Lambertian, Color{1, 1, 1}, 0, 0, true},
+	})
+
+	// TOP LIGHT
+	// list = append(list, Sphere{
+	// 	Tuple{0, 2 + 0.9, 1.2, 0}, 1,
+	// 	Material{Emission, Color{5, 5, 5}, 0, 0, false},
+	// })
+
+	// TOP
+	list = append(list, Sphere{
+		Tuple{0, 10002, -1, 0}, 10000,
+		Material{Emission, Color{1, 1, 1}, 0, 0, false},
+	})
+
+	// LEFT
+	list = append(list, Sphere{
+		Tuple{10002, 0, -1, 0}, 10000,
+		Material{Lambertian, Color{1, 0.78, 0.23}, 0, 0, false},
+	})
+
+	// RIGHT
+	list = append(list, Sphere{
+		Tuple{-10002, 0, -1, 0}, 10000,
+		Material{Lambertian, Color{0.32, 0.72, 1}, 0, 0, false},
+	})
+
+	// FRONT
+	list = append(list, Sphere{
+		Tuple{0, 0, -10001, 0}, 10000,
+		Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
+	})
+
+	// BACK
+	list = append(list, Sphere{
+		Tuple{0, 0, 10003, 0}, 10000,
+		Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
 	})
 	// list = append(list, Sphere{
 	// 	Tuple{0.92602, -0.17328, -1, 0}, 0.239,
@@ -99,12 +206,14 @@ func main() {
 
 	// var wg sync.WaitGroup
 
+	start := time.Now()
+
 	for s := 0; s < samples; s++ {
+		sample := time.Now()
 		// wg.Add(1)
 		// go func(s int) {
-		canvas := temp[s]
-		for y := 0; y < vsize; y++ {
-			for x := 0; x < hsize; x++ {
+		for y := vsize - 1; y >= 0; y-- {
+			for x := hsize - 1; x >= 0; x-- {
 				col := Color{0, 0, 0}
 				u := (float64(x) + RandFloat()) / float64(hsize)
 				v := (float64(y) + RandFloat()) / float64(vsize)
@@ -117,25 +226,21 @@ func main() {
 
 				// p := r.Position(2.0)
 
-				canvas[y*hsize+x] = col
+				canvas[y*hsize+x] = canvas[y*hsize+x].Add(col)
 			}
 		}
+
 		fmt.Printf("\r%.2f%% (% 3d/% 3d)", float64(s+1)/float64(samples)*100, s+1, samples)
+		sampleTime := time.Since(sample)
+		fmt.Printf(" % 15s/sample, % 15s sample time, ETA: % 15s", sampleTime, sampleTime/(vsize*hsize), sampleTime*(samples-time.Duration(s)-1))
 		// wg.Done()
 		// }(s)
 	}
 
+	elapsed := time.Since(start)
+	log.Printf("Rendering took %s", elapsed)
+
 	// wg.Wait()
-
-	canvas := make([]Color, vsize*hsize)
-
-	for s := 0; s < samples; s++ {
-		for y := 0; y < vsize; y++ {
-			for x := 0; x < hsize; x++ {
-				canvas[y*hsize+x] = canvas[y*hsize+x].Add(temp[s][y*hsize+x])
-			}
-		}
-	}
 
 	for y := 0; y < vsize; y++ {
 		for x := 0; x < hsize; x++ {
@@ -144,11 +249,8 @@ func main() {
 	}
 
 	fmt.Printf("\nSaving...\n")
-	filename := fmt.Sprintf("frame_%d.ppm", 0)
-	// filename := fmt.Sprintf("frame_%d.ppm", time.Now().UnixNano()/1e6)
+	// filename := fmt.Sprintf("frame_%d.ppm", 0)
+	filename := fmt.Sprintf("frame_%d.ppm", time.Now().UnixNano()/1e6)
 
 	SaveImage(canvas, hsize, vsize, 255, filename)
-
-	elapsed := time.Since(start)
-	log.Printf("Rendering took %s", elapsed)
 }
