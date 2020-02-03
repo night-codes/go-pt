@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"math/rand"
 )
 
 const (
@@ -20,9 +21,9 @@ type Material struct {
 	checkered bool
 }
 
-func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *Ray) bool {
+func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *Ray, generator rand.Rand) bool {
 	if m.material == Lambertian {
-		target := rec.p.Add(rec.normal).Add(RandInUnitSphere())
+		target := rec.p.Add(rec.normal).Add(RandInUnitSphere(generator))
 		*scattered = Ray{rec.p, target.Subtract(rec.p)}
 		if m.checkered {
 			if (int(math.Floor(rec.p.x/0.23))+int(math.Floor(rec.p.y/0.23))+int(math.Floor(rec.p.z/0.23)))%2 == 0 {
@@ -36,7 +37,7 @@ func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *R
 		return true
 	} else if m.material == Metal {
 		reflected := (r.direction.Normalize()).Reflection(rec.normal)
-		*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere().MulScalar(m.roughness))}
+		*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere(generator).MulScalar(m.roughness))}
 		*attenuation = m.albedo
 		return (scattered.direction.Dot(rec.normal) > 0)
 	} else if m.material == Dielectric {
@@ -66,10 +67,10 @@ func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *R
 			reflectProbability = 1.0
 		}
 
-		if RandFloat() < reflectProbability {
-			*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere().MulScalar(m.roughness))}
+		if RandFloat(generator) < reflectProbability {
+			*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere(generator).MulScalar(m.roughness))}
 		} else {
-			*scattered = Ray{rec.p, refracted.Add(RandInUnitSphere().MulScalar(m.roughness))}
+			*scattered = Ray{rec.p, refracted.Add(RandInUnitSphere(generator).MulScalar(m.roughness))}
 		}
 
 		return true
@@ -102,10 +103,10 @@ func (m Material) Scatter(r Ray, rec HitRecord, attenuation *Color, scattered *R
 			reflectProbability = 1.0
 		}
 
-		if RandFloat() < reflectProbability {
-			*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere().MulScalar(m.roughness))}
+		if RandFloat(generator) < reflectProbability {
+			*scattered = Ray{rec.p, reflected.Add(RandInUnitSphere(generator).MulScalar(m.roughness))}
 		} else {
-			target := rec.p.Add(rec.normal).Add(RandInUnitSphere())
+			target := rec.p.Add(rec.normal).Add(RandInUnitSphere(generator))
 			*scattered = Ray{rec.p, target.Subtract(rec.p)}
 		}
 

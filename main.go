@@ -5,26 +5,27 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"runtime"
 	"time"
 )
 
 const (
-	hsize   = 480
-	vsize   = 320
-	samples = 8
+	hsize   = 1024
+	vsize   = 1024
+	samples = 2048
 	depth   = 8
 )
 
-func color(r Ray, world *HittableList, d int) Color {
+func color(r Ray, world *HittableList, d int, generator rand.Rand) Color {
 	rec := HitRecord{}
 	if world.hit(r, Epsilon, math.MaxFloat64, &rec) {
 		var attenuation Color
 		var scattered Ray
-		if d < depth && rec.material.Scatter(r, rec, &attenuation, &scattered) {
+		if d < depth && rec.material.Scatter(r, rec, &attenuation, &scattered, generator) {
 			if rec.material.material == Emission {
 				return rec.material.albedo
 			} else {
-				return attenuation.Mul(color(scattered, world, d+1))
+				return attenuation.Mul(color(scattered, world, d+1, generator))
 			}
 		} else {
 			return Color{0, 0, 0}
@@ -37,22 +38,10 @@ func color(r Ray, world *HittableList, d int) Color {
 }
 
 func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-	canvas := make([]Color, vsize*hsize)
-	fmt.Printf("Rendering %dx%d at %d samples\n", hsize, vsize, samples)
-
-	// camera := getCamera(Tuple{0, 0, -1, 0}, Tuple{0, 0, 1, 0}, Tuple{0, 1, 0, 0}, 90, float64(hsize)/float64(vsize))
-	cameraPosition := Tuple{0, 0.25, 0, 0}
-	cameraDirection := Tuple{0, 0.25, 1, 0}
-	// cameraPosition := Tuple{-1.5, 0.25, 0.25, 0}
-	// cameraDirection := Tuple{-2, 0.25, 0, 0}
-	// cameraPosition := Tuple{-2, 2, 1, 0}
-	focusDistance := Tuple{0.75, -0.25, 1, 0}.Subtract(cameraDirection).Magnitude()
-	// focusDistance := 2.0
-	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize), 0.1, focusDistance)
-	// camera := getCamera(Tuple{0, 0, 0, 0}, Tuple{0, 0, 1, 0}, Tuple{0, -1, 0, 0}, 100, float64(hsize)/float64(vsize))
-
-	fmt.Printf("%v\n", camera)
+	cameraPosition := Tuple{-0.5, 0.25, -0.5, 0}
+	cameraDirection := Tuple{0, -0.25, 0, 0}
+	focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
+	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 90, float64(hsize)/float64(vsize), 0.05, focusDistance)
 
 	list := []Sphere{}
 	// list = append(list, Sphere{
@@ -81,81 +70,81 @@ func main() {
 
 	// diel
 
-	list = append(list, Sphere{
-		Tuple{0.75, -0.25, 1, 0},
-		0.25,
-		Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.75, -0.25, 1.5, 0},
+	// 	0.25,
+	// 	Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{0.25, -0.25, 1, 0},
-		0.25,
-		Material{Dielectric, Color{1, 1, 1}, 0.02, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.25, -0.25, 1.5, 0},
+	// 	0.25,
+	// 	Material{Dielectric, Color{1, 1, 1}, 0.02, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{-0.25, -0.25, 1, 0},
-		0.25,
-		Material{Dielectric, Color{1, 1, 1}, 0.1, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{-0.25, -0.25, 1.5, 0},
+	// 	0.25,
+	// 	Material{Dielectric, Color{1, 1, 1}, 0.1, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{-0.75, -0.25, 1, 0},
-		0.25,
-		Material{Dielectric, Color{1, 1, 1}, 0.3, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{-0.75, -0.25, 1.5, 0},
+	// 	0.25,
+	// 	Material{Dielectric, Color{1, 1, 1}, 0.3, 1.45, false},
+	// })
 
-	// metal
+	// // metal
 
-	list = append(list, Sphere{
-		Tuple{0.75, 0.25, 1, 0},
-		0.25,
-		Material{Metal, Color{1, 1, 1}, 0, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.75, -0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Metal, Color{1, 1, 1}, 0, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{0.25, 0.25, 1, 0},
-		0.25,
-		Material{Metal, Color{1, 1, 1}, 0.1, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.25, -0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Metal, Color{1, 1, 1}, 0.1, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{-0.25, 0.25, 1, 0},
-		0.25,
-		Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{-0.25, -0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{-0.75, 0.25, 1, 0},
-		0.25,
-		Material{Metal, Color{1, 1, 1}, 0.8, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{-0.75, -0.25, 1, 0},
+	// 	0.25,
+	// 	Material{Metal, Color{1, 1, 1}, 0.8, 1.45, false},
+	// })
 
-	// plastic
+	// // plastic
 
-	list = append(list, Sphere{
-		Tuple{0.75, 0.75, 1, 0},
-		0.25,
-		Material{Plastic, Color{1, 1, 1}, 0, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.75, -0.25, 0.5, 0},
+	// 	0.25,
+	// 	Material{Plastic, Color{1, 1, 1}, 0, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{0.25, 0.75, 1, 0},
-		0.25,
-		Material{Plastic, Color{1, 1, 1}, 0.02, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.25, -0.25, 0.5, 0},
+	// 	0.25,
+	// 	Material{Plastic, Color{1, 1, 1}, 0.07, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{-0.25, 0.75, 1, 0},
-		0.25,
-		Material{Plastic, Color{1, 1, 1}, 0.05, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{-0.25, -0.25, 0.5, 0},
+	// 	0.25,
+	// 	Material{Plastic, Color{1, 1, 1}, 0.2, 1.45, false},
+	// })
 
-	list = append(list, Sphere{
-		Tuple{-0.75, 0.75, 1, 0},
-		0.25,
-		Material{Plastic, Color{1, 1, 1}, 0.1, 1.45, false},
-	})
+	// list = append(list, Sphere{
+	// 	Tuple{-0.75, -0.25, 0.5, 0},
+	// 	0.25,
+	// 	Material{Plastic, Color{1, 1, 1}, 0.5, 1.45, false},
+	// })
 
 	// BOTTOM
 	list = append(list, Sphere{
@@ -163,11 +152,41 @@ func main() {
 		Material{Lambertian, Color{1, 1, 1}, 0, 0, true},
 	})
 
+	list = append(list, Sphere{
+		Tuple{0, -0.25, 0, 0},
+		0.25,
+		Material{Plastic, Color{1, 1, 1}, 0, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{0.5, -0.25, 0.2, 0},
+		0.25,
+		Material{Lambertian, Color{0.8, 0.2, 0.2}, 0, 0, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{-0.3, -0.25, 0.5, 0},
+		0.25,
+		Material{Metal, Color{0.8, 0.8, 0.8}, 0.5, 0, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{0.7, -0.25, -0.3, 0},
+		0.25,
+		Material{Dielectric, Color{0, 0.7, 0}, 0, 1.45, false},
+	})
+
+	list = append(list, Sphere{
+		Tuple{0.3, -0.25, 1, 0},
+		0.25,
+		Material{Metal, Color{0.1, 0.0, 0.7}, 0, 0, false},
+	})
+
 	// TOP LIGHT
-	// list = append(list, Sphere{
-	// 	Tuple{0, 2 + 0.9, 1.2, 0}, 1,
-	// 	Material{Emission, Color{5, 5, 5}, 0, 0, false},
-	// })
+	list = append(list, Sphere{
+		Tuple{0, 2 + 0.9, 1.2, 0}, 1,
+		Material{Emission, Color{5, 5, 5}, 0, 0, false},
+	})
 
 	// TOP
 	list = append(list, Sphere{
@@ -208,43 +227,74 @@ func main() {
 	// })
 	world := HittableList{list}
 
-	// var wg sync.WaitGroup
+	cpus := runtime.NumCPU()
+	runtime.GOMAXPROCS(cpus)
+
+	buf := make([][]Color, cpus)
+
+	for i := 0; i < cpus; i++ {
+		buf[i] = make([]Color, vsize*hsize)
+	}
+
+	ch := make(chan int, cpus)
+
+	canvas := make([]Color, vsize*hsize)
 
 	start := time.Now()
 
-	for s := 0; s < samples; s++ {
-		sample := time.Now()
-		// wg.Add(1)
-		// go func(s int) {
-		for y := vsize - 1; y >= 0; y-- {
-			for x := 0; x < hsize; x++ {
-				col := Color{0, 0, 0}
-				u := (float64(x) + RandFloat()) / float64(hsize)
-				v := (float64(y) + RandFloat()) / float64(vsize)
-				// r := Ray{origin, lower_left_corner.Add((horizontal.MulScalar(u)).Add(vertical.MulScalar(v)))}
-				r := camera.getRay(u, v)
+	samplesCPU := samples / cpus
 
-				col = color(r, &world, 0)
-
-				// col = col.DivScalar(float64(samples))
-
-				// p := r.Position(2.0)
-
-				canvas[y*hsize+x] = canvas[y*hsize+x].Add(col)
-			}
-		}
-
-		fmt.Printf("\r%.2f%% (% 3d/% 3d)", float64(s+1)/float64(samples)*100, s+1, samples)
-		sampleTime := time.Since(sample)
-		fmt.Printf(" % 15s/sample, % 15s sample time, ETA: % 15s", sampleTime, sampleTime/(vsize*hsize), sampleTime*(samples-time.Duration(s)-1))
-		// wg.Done()
-		// }(s)
+	if samples < cpus {
+		cpus = samples
+		samplesCPU = samples
 	}
+
+	doneSamples := 0
+
+	fmt.Printf("Rendering %dx%d at %d samples on %d cores\n", hsize, vsize, samples, cpus)
+
+	for i := 0; i < cpus; i++ {
+		go func(i int) {
+			for s := 0; s < samplesCPU; s++ {
+				source := rand.NewSource(time.Now().UnixNano())
+				generator := rand.New(source)
+				sample := time.Now()
+				for y := vsize - 1; y >= 0; y-- {
+					for x := 0; x < hsize; x++ {
+						col := Color{0, 0, 0}
+						u := (float64(x) + RandFloat(*generator)) / float64(hsize)
+						v := (float64(y) + RandFloat(*generator)) / float64(vsize)
+						r := camera.getRay(u, v, *generator)
+
+						col = color(r, &world, 0, *generator)
+
+						buf[i][y*hsize+x] = buf[i][y*hsize+x].Add(col)
+					}
+				}
+
+				doneSamples++
+				fmt.Printf("\r%.2f%% (% 3d/% 3d)", float64(doneSamples)/float64(samples)*100, doneSamples, samples)
+				sampleTime := time.Since(sample)
+				fmt.Printf(" % 15s/sample, % 15s sample time, ETA: % 15s", sampleTime, sampleTime/(vsize*hsize), sampleTime*(time.Duration(samples)-time.Duration(doneSamples))/time.Duration(cpus))
+			}
+			ch <- 1
+		}(i)
+	}
+
+	for i := 0; i < cpus; i++ {
+		<-ch
+	}
+	close(ch)
 
 	elapsed := time.Since(start)
 	log.Printf("Rendering took %s", elapsed)
-
-	// wg.Wait()
+	for i := 0; i < cpus; i++ {
+		for y := 0; y < vsize; y++ {
+			for x := 0; x < hsize; x++ {
+				canvas[y*hsize+x] = canvas[y*hsize+x].Add(buf[i][y*hsize+x])
+			}
+		}
+	}
 
 	for y := 0; y < vsize; y++ {
 		for x := 0; x < hsize; x++ {

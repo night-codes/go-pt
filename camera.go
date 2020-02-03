@@ -1,17 +1,20 @@
 package main
 
-import "math"
+import (
+	"math"
+	"math/rand"
+)
 
 type Camera struct {
 	origin, lowerLeftCorner, horizontal, vertical, u, v, w Tuple
 	lensRadius                                             float64
 }
 
-func randomDisk() Tuple {
+func randomDisk(generator rand.Rand) Tuple {
 	var p Tuple
 	for {
-		p = Tuple{RandFloat(), RandFloat(), 0, 0}.MulScalar(2.0).Subtract(Tuple{1, 1, 0, 0})
-		if p.Dot(p) >= 1.0 {
+		p = Tuple{RandFloat(generator), RandFloat(generator), 0, 0}.MulScalar(2.0).Subtract(Tuple{1, 1, 0, 0})
+		if p.Dot(p) <= 1.0 {
 			break
 		}
 	}
@@ -35,8 +38,8 @@ func getCamera(lookFrom, lookAt, up Tuple, fov, aspect, aperture, focusDistance 
 	return c
 }
 
-func (c Camera) getRay(s, t float64) Ray {
-	randomDisk := randomDisk().MulScalar(c.lensRadius)
+func (c Camera) getRay(s, t float64, generator rand.Rand) Ray {
+	randomDisk := randomDisk(generator).MulScalar(c.lensRadius)
 	offset := c.u.MulScalar(randomDisk.x).Add(c.v.MulScalar(randomDisk.y))
 	return Ray{c.origin.Add(offset), c.lowerLeftCorner.Add(c.horizontal.MulScalar(s)).Add(c.vertical.MulScalar(t)).Subtract(c.origin).Subtract(offset)}
 }
