@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	hsize   = 128
-	vsize   = 128
-	samples = 64
+	hsize   = 1024
+	vsize   = 1024
+	samples = 2048
 	depth   = 8
 )
 
@@ -35,10 +35,9 @@ func color(r Ray, world *HittableList, d int, generator rand.Rand) Color {
 			return Color{0, 0, 0}
 		}
 	} else {
-		// unit_direction := r.direction.Normalize()
-		// t := 0.5 * (unit_direction.y + 1.0)
-		// return Color{1.0, 1.0, 1.0}.MulScalar(1.0 - t).Add(Color{0.5, 0.7, 1.0}.MulScalar(t))
-		return Color{1, 1, 1}
+		unit_direction := r.direction.Normalize()
+		t := 0.5 * (unit_direction.y + 1.0)
+		return Color{1.0, 1.0, 1.0}.MulScalar(1.0 - t).Add(Color{0.5, 0.7, 1.0}.MulScalar(t))
 	}
 }
 
@@ -46,18 +45,18 @@ func main() {
 	listSpheres := []Sphere{}
 	listTriangles := []Triangle{}
 
-	cameraPosition := Tuple{-200, 2, 200, 0}
-	cameraDirection := Tuple{20, 1, 1, 0}
-	focusDistance := Tuple{0, 0, 0, 0}.Subtract(cameraPosition).Magnitude()
-	// focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
-	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize), 0, focusDistance)
+	cameraPosition := Tuple{0, 0, 3, 0}
+	cameraDirection := Tuple{0, 0, 0, 0}
+	// focusDistance := Tuple{0, 0, 0, 0}.Subtract(cameraPosition).Magnitude()
+	focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
+	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize), 0.15, focusDistance)
 
 	vertices := []Tuple{}
 	vertNormals := []Tuple{}
 	faceVerts := [][3]Tuple{}
 	faceNormals := [][3]Tuple{}
 
-	file, err := os.Open("softball.obj")
+	file, err := os.Open("suzanne.obj")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -104,14 +103,20 @@ func main() {
 	}
 
 	for i := 0; i < len(faceVerts); i++ {
-		listTriangles = append(listTriangles, Triangle{
+		triangle := Triangle{
 			TrianglePosition{
 				faceVerts[i][0],
 				faceVerts[i][1],
 				faceVerts[i][2],
 			},
-			Material{Plastic, Color{0.1, 0.1, 0.1}, 0, 1.45, false},
-		})
+			Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
+			Tuple{0, 0, 0, 0},
+		}
+		vertex0 := faceNormals[i][0]
+		vertex1 := faceNormals[i][1]
+		vertex2 := faceNormals[i][2]
+		triangle.normal = (vertex0.Add(vertex1).Add(vertex2)).Normalize()
+		listTriangles = append(listTriangles, triangle)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -120,192 +125,53 @@ func main() {
 
 	// BOTTOM
 	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, -1000100, -1, 0}, 1000000,
-		Material{Lambertian, Color{0.14, 0.74, 0.35}, 0, 1.45, true},
+		Tuple{0, -10001, -1, 0}, 10000,
+		Material{Lambertian, Color{0, 0, 0}, 0, 1.45, true},
 	})
 
-	/*
-		// listSpheres = append(listSpheres, Sphere{
-		// 	Tuple{0, 0, 0, 0},
-		// 	0.25,
-		// 	Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
-		// })
+	// // TOP LIGHT
+	// listSpheres = append(listSpheres, Sphere{
+	// 	Tuple{0, 1.5, 0, 0}, 0.25,
+	// 	Material{Emission, Color{5, 5, 5}, 0, 0, false},
+	// })
 
-		// BOTTOM SQUARE
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 0, 0, 0},
-				Tuple{0, 0, 0, 0},
-				Tuple{1, 0, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
+	// TOP
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{0, 10010, -1, 0}, 10000,
+		Material{Emission, Color{1, 1, 1}, 0, 0, false},
+	})
 
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{0, 0, 0, 0},
-				Tuple{0, 0, 1, 0},
-				Tuple{1, 0, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
+	// LEFT
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{10003, 0, -1, 0}, 10000,
+		Material{Lambertian, Color{1, 0.78, 0.23}, 0, 0, false},
+	})
 
-		// TOP SQUARE
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 1, 0, 0},
-				Tuple{0, 1, 0, 0},
-				Tuple{1, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
+	// RIGHT
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{-10003, 0, -1, 0}, 10000,
+		Material{Lambertian, Color{0.32, 0.72, 1}, 0, 0, false},
+	})
 
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{0, 1, 0, 0},
-				Tuple{0, 1, 1, 0},
-				Tuple{1, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
+	// FRONT
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{0, 0, -10010, 0}, 10000,
+		Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
+	})
 
-		// BACK SQUARE
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 0, 0, 0},
-				Tuple{0, 0, 0, 0},
-				Tuple{1, 1, 0, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 1, 0, 0},
-				Tuple{0, 0, 0, 0},
-				Tuple{0, 1, 0, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		// FRONT SQUARE
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 0, 1, 0},
-				Tuple{0, 0, 1, 0},
-				Tuple{1, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 1, 1, 0},
-				Tuple{0, 0, 1, 0},
-				Tuple{0, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		// RIGHT SQUARE
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{0, 0, 0, 0},
-				Tuple{0, 0, 1, 0},
-				Tuple{0, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{0, 1, 0, 0},
-				Tuple{0, 0, 0, 0},
-				Tuple{0, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		// LEFT SQUARE
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 0, 1, 0},
-				Tuple{1, 0, 0, 0},
-				Tuple{1, 1, 1, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		listTriangles = append(listTriangles, Triangle{
-			TrianglePosition{
-				Tuple{1, 1, 0, 0},
-				Tuple{1, 1, 1, 0},
-				Tuple{1, 0, 0, 0},
-			},
-			Material{Metal, Color{1, 1, 1}, 0.4, 1.45, false},
-		})
-
-		// listTriangles = append(listTriangles, Triangle{
-		// 	TrianglePosition{
-		// 		Tuple{0, 0.25, 0, 0},
-		// 		Tuple{1, 0.25, 0, 0},
-		// 		Tuple{1, 0.25, 1, 0},
-		// 	},
-		// 	Material{Dielectric, Color{1, 0.5, 0.5}, 0, 1.45, false},
-		// })
-
-		// listTriangles = append(listTriangles, Triangle{
-		// 	TrianglePosition{
-		// 		Tuple{0, 1, -1, 0},
-		// 		Tuple{0, -1, -1, 0},
-		// 		Tuple{0, 0, 0, 0},
-		// 	},
-		// 	Material{Lambertian, Color{0.9, 0.1, 0.1}, 0.1, 1.45, false},
-		// })
-
-		// // TOP LIGHT
-		// listSpheres = append(listSpheres, Sphere{
-		// 	Tuple{0, 1.7, 0, 0}, 0.5,
-		// 	Material{Emission, Color{5, 5, 5}, 0, 0, false},
-		// })
-
-		// TOP
-		listSpheres = append(listSpheres, Sphere{
-			Tuple{0, 10002, -1, 0}, 10000,
-			Material{Emission, Color{1, 1, 1}, 0, 0, false},
-		})
-
-		// LEFT
-		listSpheres = append(listSpheres, Sphere{
-			Tuple{10002, 0, -1, 0}, 10000,
-			Material{Lambertian, Color{1, 0.78, 0.23}, 0, 0, false},
-		})
-
-		// RIGHT
-		listSpheres = append(listSpheres, Sphere{
-			Tuple{-10002, 0, -1, 0}, 10000,
-			Material{Lambertian, Color{0.32, 0.72, 1}, 0, 0, false},
-		})
-
-		// FRONT
-		listSpheres = append(listSpheres, Sphere{
-			Tuple{0, 0, -10001, 0}, 10000,
-			Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
-		})
-
-		// BACK
-		listSpheres = append(listSpheres, Sphere{
-			Tuple{0, 0, 10003, 0}, 10000,
-			Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
-		})
-		// list = append(list, Sphere{
-		// 	Tuple{0.92602, -0.17328, -1, 0}, 0.239,
-		// 	Material{Dielectric, Color{1, 0, 0}, 0, 1.333},
-		// })
-		// list = append(list, Sphere{
-		// 	Tuple{-0.47711, -0.2623, -1.3436, 0}, 0.248,
-		// 	Material{Lambertian, Color{1, 0.288, 0.302}, 0, 0},
-		// })*/
+	// BACK
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{0, 0, 10010, 0}, 10000,
+		Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
+	})
+	// list = append(list, Sphere{
+	// 	Tuple{0.92602, -0.17328, -1, 0}, 0.239,
+	// 	Material{Dielectric, Color{1, 0, 0}, 0, 1.333},
+	// })
+	// list = append(list, Sphere{
+	// 	Tuple{-0.47711, -0.2623, -1.3436, 0}, 0.248,
+	// 	Material{Lambertian, Color{1, 0.288, 0.302}, 0, 0},
+	// })
 	world := HittableList{listSpheres, listTriangles}
 
 	cpus := runtime.NumCPU()

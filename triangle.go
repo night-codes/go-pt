@@ -7,4 +7,5 @@ type TrianglePosition struct {
 type Triangle struct {
 	position TrianglePosition
 	material Material
+	normal   Tuple
 }

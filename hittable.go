@@ -90,7 +90,8 @@ func (tri *Triangle) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
 		*&rec.t = t
 		*&rec.material = tri.material
 		// *&rec.normal = Tuple{0, 1, 0, 1}
-		*&rec.normal = edge1.Cross(edge2)
+		// *&rec.normal = edge1.Cross(edge2)
+		*&rec.normal = tri.normal
 		return true
 	}
 	return false
