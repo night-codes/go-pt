@@ -1,6 +1,8 @@
 package main
 
-import "math"
+import (
+	"math"
+)
 
 type HitRecord struct {
 	t        float64
@@ -10,8 +12,47 @@ type HitRecord struct {
 }
 
 type HittableList struct {
-	sphereHits   []Sphere
-	triangleHits []Triangle
+	sphereHits []Sphere
+	bvh        BVH
+}
+
+type AABB struct {
+	min, max Tuple
+}
+
+type BVH struct {
+	left, right *BVH
+	leaves      [2]Leaf
+	bounds      AABB
+	last        bool
+	depth       int
+}
+
+type Leaf struct {
+	bounds    AABB
+	triangles []Triangle
+}
+
+func levelTravelsal(tree *BVH, level int, r Ray, tMin, tMax float64) [][2]Leaf {
+	temp := [][2]Leaf{}
+	if tree == nil {
+		return nil
+	}
+	if tree.last {
+		if tree.bounds.hit(r, tMin, tMax) {
+			return append(temp, tree.leaves)
+		}
+		return temp
+	} else if level > 0 {
+		if tree.left.bounds.hit(r, tMin, tMax) {
+			temp = levelTravelsal(tree.left, level-1, r, tMin, tMax)
+		}
+		if tree.right.bounds.hit(r, tMin, tMax) {
+			tr := levelTravelsal(tree.right, level-1, r, tMin, tMax)
+			temp = append(temp, tr...)
+		}
+	}
+	return temp
 }
 
 func (h *HittableList) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
@@ -25,11 +66,20 @@ func (h *HittableList) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
 			*rec = tempRec
 		}
 	}
-	for i := 0; i < len(h.triangleHits); i++ {
-		if h.triangleHits[i].hit(r, tMin, closestSoFar, &tempRec) {
-			hitAnything = true
-			closestSoFar = tempRec.t
-			*rec = tempRec
+
+	current := &h.bvh
+
+	tris := levelTravelsal(current, current.depth, r, tMin, tMax)
+
+	for i := 0; i < len(tris); i++ {
+		for j := 0; j < 2; j++ {
+			for k := 0; k < len(tris[i][j].triangles); k++ {
+				if tris[i][j].triangles[k].hit(r, tMin, closestSoFar, &tempRec) {
+					hitAnything = true
+					closestSoFar = tempRec.t
+					*rec = tempRec
+				}
+			}
 		}
 	}
 	return hitAnything
@@ -95,4 +145,34 @@ func (tri *Triangle) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
 		return true
 	}
 	return false
+}
+
+func (box *AABB) hit(r Ray, tMin, tMax float64) bool {
+	// func (box *AABB) hit(r Ray, tMin, tMax float64, t *float64) bool {
+	dirFrac := Tuple{
+		1.0 / r.direction.x,
+		1.0 / r.direction.y,
+		1.0 / r.direction.z,
+		1,
+	}
+
+	t1 := (box.min.x - r.origin.x) * dirFrac.x
+	t2 := (box.max.x - r.origin.x) * dirFrac.x
+	t3 := (box.min.y - r.origin.y) * dirFrac.y
+	t4 := (box.max.y - r.origin.y) * dirFrac.y
+	t5 := (box.min.z - r.origin.z) * dirFrac.z
+	t6 := (box.max.z - r.origin.z) * dirFrac.z
+
+	tMin = math.Max(math.Max(math.Min(t1, t2), math.Min(t3, t4)), math.Min(t5, t6))
+	tMax = math.Min(math.Min(math.Max(t1, t2), math.Max(t3, t4)), math.Max(t5, t6))
+
+	if tMax < 0 {
+		return false
+	}
+
+	if tMin > tMax {
+		return false
+	}
+
+	return true
 }

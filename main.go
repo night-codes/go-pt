@@ -8,15 +8,16 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	hsize   = 1024
-	vsize   = 1024
-	samples = 2048
+	hsize   = 32
+	vsize   = 32
+	samples = 16
 	depth   = 8
 )
 
@@ -41,27 +42,13 @@ func color(r Ray, world *HittableList, d int, generator rand.Rand) Color {
 	}
 }
 
-func main() {
-	listSpheres := []Sphere{}
-	listTriangles := []Triangle{}
-
-	cameraPosition := Tuple{0, 0, 3, 0}
-	cameraDirection := Tuple{0, 0, 0, 0}
-	// focusDistance := Tuple{0, 0, 0, 0}.Subtract(cameraPosition).Magnitude()
-	focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
-	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 75, float64(hsize)/float64(vsize), 0.15, focusDistance)
-
+func loadOBJ(file *os.File, list *[]Triangle, material Material) {
 	vertices := []Tuple{}
 	vertNormals := []Tuple{}
 	faceVerts := [][3]Tuple{}
 	faceNormals := [][3]Tuple{}
 
-	file, err := os.Open("suzanne.obj")
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer file.Close()
-
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		text := strings.Fields(scanner.Text())
@@ -109,70 +96,159 @@ func main() {
 				faceVerts[i][1],
 				faceVerts[i][2],
 			},
-			Material{Dielectric, Color{1, 1, 1}, 0, 1.45, false},
+			material,
 			Tuple{0, 0, 0, 0},
 		}
 		vertex0 := faceNormals[i][0]
 		vertex1 := faceNormals[i][1]
 		vertex2 := faceNormals[i][2]
 		triangle.normal = (vertex0.Add(vertex1).Add(vertex2)).Normalize()
-		listTriangles = append(listTriangles, triangle)
+		*list = append(*list, triangle)
 	}
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func min3(a, b, c float64) float64 {
+	if a < b {
+		if a < c {
+			return a
+		}
+		return c
+	}
+	if b < c {
+		return b
+	}
+	return c
+}
+
+func max3(a, b, c float64) float64 {
+	if a > b {
+		if a > c {
+			return a
+		}
+		return c
+	}
+	if b > c {
+		return b
+	}
+	return c
+}
+
+func getBoundingBox(triangles []Triangle) AABB {
+	xMin, xMax, yMin, yMax, zMin, zMax := -math.MaxFloat64, math.MaxFloat64, -math.MaxFloat64, math.MaxFloat64, -math.MaxFloat64, math.MaxFloat64
+
+	var aabb AABB
+	for _, triangle := range triangles {
+		x1 := triangle.position.vertex0.x
+		x2 := triangle.position.vertex1.x
+		x3 := triangle.position.vertex2.x
+		tempMin := max3(x1, x2, x3)
+		tempMax := min3(x1, x2, x3)
+		xMin = math.Max(xMin, tempMin)
+		xMax = math.Min(xMax, tempMax)
+
+		y1 := triangle.position.vertex0.y
+		y2 := triangle.position.vertex1.y
+		y3 := triangle.position.vertex2.y
+		tempMin = max3(y1, y2, y3)
+		tempMax = min3(y1, y2, y3)
+		yMin = math.Max(yMin, tempMin)
+		yMax = math.Min(yMax, tempMax)
+
+		z1 := triangle.position.vertex0.z
+		z2 := triangle.position.vertex1.z
+		z3 := triangle.position.vertex2.z
+		tempMin = max3(z1, z2, z3)
+		tempMax = min3(z1, z2, z3)
+		zMin = math.Max(zMin, tempMin)
+		zMax = math.Min(zMax, tempMax)
+	}
+
+	aabb.min = Tuple{xMax, yMax, zMax, 0}
+	aabb.max = Tuple{xMin, yMin, zMin, 0}
+
+	return aabb
+}
+
+func getBVH(triangles []Triangle, depth int) *BVH {
+	size := len(triangles) / 2
+	rightList := triangles[:size]
+	leftList := triangles[size:]
+	aabbLeft := getBoundingBox(leftList)
+	aabbRight := getBoundingBox(rightList)
+	if size/2 == 0 {
+		return &BVH{
+			&BVH{}, &BVH{},
+			[2]Leaf{
+				Leaf{aabbLeft, leftList},
+				Leaf{aabbRight, rightList},
+			},
+			getBoundingBox(triangles),
+			true,
+			depth,
+		}
+	}
+	if depth > 0 {
+		return &BVH{
+			getBVH(leftList, depth-1), getBVH(rightList, depth-1),
+			[2]Leaf{},
+			getBoundingBox(triangles),
+			false,
+			depth,
+		}
+	}
+	return &BVH{
+		&BVH{}, &BVH{},
+		[2]Leaf{
+			Leaf{aabbLeft, leftList},
+			Leaf{aabbRight, rightList},
+		},
+		getBoundingBox(triangles),
+		true,
+		depth,
+	}
+}
+
+func main() {
+	listSpheres := []Sphere{}
+	listTriangles := []Triangle{}
+
+	cameraPosition := Tuple{2, 2, 2, 0}
+	cameraDirection := Tuple{-1, 0, -1, 0}
+	focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
+	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 50, float64(hsize)/float64(vsize), 0.0, focusDistance)
+
+	// file, err := os.Open("suzanne.obj")
+	file, err := os.Open("bunny.obj")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	loadOBJ(file, &listTriangles, Material{Metal, Color{0, 0.5, 0.2}, 0, 1.45, false})
+
+	sort.Slice(listTriangles[:], func(i, j int) bool {
+		return listTriangles[i].position.vertex0.x < listTriangles[j].position.vertex0.x && listTriangles[i].position.vertex0.y < listTriangles[j].position.vertex0.y && listTriangles[i].position.vertex0.z < listTriangles[j].position.vertex0.z
+	})
+
+	fmt.Println("Building BVHs...")
+
+	sort.Slice(listTriangles[:], func(i, j int) bool {
+		return listTriangles[i].position.vertex0.x < listTriangles[j].position.vertex0.x
+	})
+
+	bvh := getBVH(listTriangles, 8)
+	fmt.Println("Built BVHs")
 
 	// BOTTOM
 	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, -10001, -1, 0}, 10000,
-		Material{Lambertian, Color{0, 0, 0}, 0, 1.45, true},
+		Tuple{0, -10000, -1, 0}, 10000,
+		Material{Lambertian, Color{1, 1, 1}, 0.5, 1.45, true},
 	})
 
-	// // TOP LIGHT
-	// listSpheres = append(listSpheres, Sphere{
-	// 	Tuple{0, 1.5, 0, 0}, 0.25,
-	// 	Material{Emission, Color{5, 5, 5}, 0, 0, false},
-	// })
-
-	// TOP
-	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, 10010, -1, 0}, 10000,
-		Material{Emission, Color{1, 1, 1}, 0, 0, false},
-	})
-
-	// LEFT
-	listSpheres = append(listSpheres, Sphere{
-		Tuple{10003, 0, -1, 0}, 10000,
-		Material{Lambertian, Color{1, 0.78, 0.23}, 0, 0, false},
-	})
-
-	// RIGHT
-	listSpheres = append(listSpheres, Sphere{
-		Tuple{-10003, 0, -1, 0}, 10000,
-		Material{Lambertian, Color{0.32, 0.72, 1}, 0, 0, false},
-	})
-
-	// FRONT
-	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, 0, -10010, 0}, 10000,
-		Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
-	})
-
-	// BACK
-	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, 0, 10010, 0}, 10000,
-		Material{Lambertian, Color{1, 1, 1}, 0, 0, false},
-	})
-	// list = append(list, Sphere{
-	// 	Tuple{0.92602, -0.17328, -1, 0}, 0.239,
-	// 	Material{Dielectric, Color{1, 0, 0}, 0, 1.333},
-	// })
-	// list = append(list, Sphere{
-	// 	Tuple{-0.47711, -0.2623, -1.3436, 0}, 0.248,
-	// 	Material{Lambertian, Color{1, 0.288, 0.302}, 0, 0},
-	// })
-	world := HittableList{listSpheres, listTriangles}
+	world := HittableList{listSpheres, *bvh}
 
 	cpus := runtime.NumCPU()
 	runtime.GOMAXPROCS(cpus)
