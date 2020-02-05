@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	hsize   = 32
-	vsize   = 32
-	samples = 16
+	hsize   = 512
+	vsize   = 512
+	samples = 1024
 	depth   = 8
 )
 
@@ -36,9 +36,10 @@ func color(r Ray, world *HittableList, d int, generator rand.Rand) Color {
 			return Color{0, 0, 0}
 		}
 	} else {
-		unit_direction := r.direction.Normalize()
-		t := 0.5 * (unit_direction.y + 1.0)
-		return Color{1.0, 1.0, 1.0}.MulScalar(1.0 - t).Add(Color{0.5, 0.7, 1.0}.MulScalar(t))
+		// unit_direction := r.direction.Normalize()
+		// t := 0.5 * (unit_direction.y + 1.0)
+		// return Color{1.0, 1.0, 1.0}.MulScalar(1.0 - t).Add(Color{0.5, 0.7, 1.0}.MulScalar(t))
+		return Color{0, 0, 0}
 	}
 }
 
@@ -52,40 +53,42 @@ func loadOBJ(file *os.File, list *[]Triangle, material Material) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		text := strings.Fields(scanner.Text())
-		if text[0] == "v" {
-			x, _ := strconv.ParseFloat(text[1], 64)
-			y, _ := strconv.ParseFloat(text[2], 64)
-			z, _ := strconv.ParseFloat(text[3], 64)
-			vertices = append(vertices, Tuple{
-				x, y, z, 0,
-			})
-		} else if text[0] == "vn" {
-			x, _ := strconv.ParseFloat(text[1], 64)
-			y, _ := strconv.ParseFloat(text[2], 64)
-			z, _ := strconv.ParseFloat(text[3], 64)
-			vertNormals = append(vertNormals, Tuple{
-				x, y, z, 0,
-			})
-		} else if text[0] == "f" {
-			values1 := strings.Split(text[1], "/")
-			values2 := strings.Split(text[2], "/")
-			values3 := strings.Split(text[3], "/")
+		if len(text) > 0 {
+			if text[0] == "v" {
+				x, _ := strconv.ParseFloat(text[1], 64)
+				y, _ := strconv.ParseFloat(text[2], 64)
+				z, _ := strconv.ParseFloat(text[3], 64)
+				vertices = append(vertices, Tuple{
+					x, y, z, 0,
+				})
+			} else if text[0] == "vn" {
+				x, _ := strconv.ParseFloat(text[1], 64)
+				y, _ := strconv.ParseFloat(text[2], 64)
+				z, _ := strconv.ParseFloat(text[3], 64)
+				vertNormals = append(vertNormals, Tuple{
+					x, y, z, 0,
+				})
+			} else if text[0] == "f" {
+				values1 := strings.Split(text[1], "/")
+				values2 := strings.Split(text[2], "/")
+				values3 := strings.Split(text[3], "/")
 
-			v1, _ := strconv.Atoi(values1[0])
-			v2, _ := strconv.Atoi(values2[0])
-			v3, _ := strconv.Atoi(values3[0])
+				v1, _ := strconv.Atoi(values1[0])
+				v2, _ := strconv.Atoi(values2[0])
+				v3, _ := strconv.Atoi(values3[0])
 
-			vn1, _ := strconv.Atoi(values1[2])
-			vn2, _ := strconv.Atoi(values2[2])
-			vn3, _ := strconv.Atoi(values3[2])
+				vn1, _ := strconv.Atoi(values1[2])
+				vn2, _ := strconv.Atoi(values2[2])
+				vn3, _ := strconv.Atoi(values3[2])
 
-			faceVerts = append(faceVerts, [3]Tuple{
-				vertices[v1-1], vertices[v2-1], vertices[v3-1],
-			})
+				faceVerts = append(faceVerts, [3]Tuple{
+					vertices[v1-1], vertices[v2-1], vertices[v3-1],
+				})
 
-			faceNormals = append(faceNormals, [3]Tuple{
-				vertNormals[vn1-1], vertNormals[vn2-1], vertNormals[vn3-1],
-			})
+				faceNormals = append(faceNormals, [3]Tuple{
+					vertNormals[vn1-1], vertNormals[vn2-1], vertNormals[vn3-1],
+				})
+			}
 		}
 	}
 
@@ -173,7 +176,24 @@ func getBoundingBox(triangles []Triangle) AABB {
 	return aabb
 }
 
-func getBVH(triangles []Triangle, depth int) *BVH {
+func getBVH(triangles []Triangle, depth, x int) *BVH {
+	x++
+	if x > 2 {
+		x = 0
+	}
+	if x == 0 {
+		sort.Slice(triangles[:], func(i, j int) bool {
+			return triangles[i].position.vertex0.x < triangles[j].position.vertex0.x
+		})
+	} else if x == 1 {
+		sort.Slice(triangles[:], func(i, j int) bool {
+			return triangles[i].position.vertex0.y < triangles[j].position.vertex0.y
+		})
+	} else if x == 2 {
+		sort.Slice(triangles[:], func(i, j int) bool {
+			return triangles[i].position.vertex0.z < triangles[j].position.vertex0.z
+		})
+	}
 	size := len(triangles) / 2
 	rightList := triangles[:size]
 	leftList := triangles[size:]
@@ -193,7 +213,7 @@ func getBVH(triangles []Triangle, depth int) *BVH {
 	}
 	if depth > 0 {
 		return &BVH{
-			getBVH(leftList, depth-1), getBVH(rightList, depth-1),
+			getBVH(leftList, depth-1, x), getBVH(rightList, depth-1, x),
 			[2]Leaf{},
 			getBoundingBox(triangles),
 			false,
@@ -216,36 +236,32 @@ func main() {
 	listSpheres := []Sphere{}
 	listTriangles := []Triangle{}
 
-	cameraPosition := Tuple{2, 2, 2, 0}
-	cameraDirection := Tuple{-1, 0, -1, 0}
+	cameraPosition := Tuple{1.5, 1.5, 1.5, 0}
+	cameraDirection := Tuple{-1.5, 0, -1, 0}
 	focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
-	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 50, float64(hsize)/float64(vsize), 0.0, focusDistance)
+	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 80, float64(hsize)/float64(vsize), 0.0, focusDistance)
 
-	// file, err := os.Open("suzanne.obj")
 	file, err := os.Open("bunny.obj")
+	// file, err := os.Open("d.obj")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	loadOBJ(file, &listTriangles, Material{Metal, Color{0, 0.5, 0.2}, 0, 1.45, false})
-
-	sort.Slice(listTriangles[:], func(i, j int) bool {
-		return listTriangles[i].position.vertex0.x < listTriangles[j].position.vertex0.x && listTriangles[i].position.vertex0.y < listTriangles[j].position.vertex0.y && listTriangles[i].position.vertex0.z < listTriangles[j].position.vertex0.z
-	})
+	loadOBJ(file, &listTriangles, Material{Dielectric, Color{0.85, 0.1, 0.1}, 0, 1.45, false})
 
 	fmt.Println("Building BVHs...")
-
-	sort.Slice(listTriangles[:], func(i, j int) bool {
-		return listTriangles[i].position.vertex0.x < listTriangles[j].position.vertex0.x
-	})
-
-	bvh := getBVH(listTriangles, 8)
+	bvh := getBVH(listTriangles, 12, 0)
 	fmt.Println("Built BVHs")
 
 	// BOTTOM
 	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, -10000, -1, 0}, 10000,
-		Material{Lambertian, Color{1, 1, 1}, 0.5, 1.45, true},
+		Tuple{0, -10000, 0, 0}, 10000,
+		Material{Lambertian, Color{1, 1, 1}, 0, 1.45, false},
+	})
+
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{0, 3, 0, 0}, 0.5,
+		Material{Emission, Color{5, 5, 5}, 0, 1.45, false},
 	})
 
 	world := HittableList{listSpheres, *bvh}

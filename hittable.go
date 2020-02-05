@@ -33,7 +33,7 @@ type Leaf struct {
 	triangles []Triangle
 }
 
-func levelTravelsal(tree *BVH, level int, r Ray, tMin, tMax float64) [][2]Leaf {
+func hitBVH(tree *BVH, level int, r Ray, tMin, tMax float64) [][2]Leaf {
 	temp := [][2]Leaf{}
 	if tree == nil {
 		return nil
@@ -45,10 +45,10 @@ func levelTravelsal(tree *BVH, level int, r Ray, tMin, tMax float64) [][2]Leaf {
 		return temp
 	} else if level > 0 {
 		if tree.left.bounds.hit(r, tMin, tMax) {
-			temp = levelTravelsal(tree.left, level-1, r, tMin, tMax)
+			temp = hitBVH(tree.left, level-1, r, tMin, tMax)
 		}
 		if tree.right.bounds.hit(r, tMin, tMax) {
-			tr := levelTravelsal(tree.right, level-1, r, tMin, tMax)
+			tr := hitBVH(tree.right, level-1, r, tMin, tMax)
 			temp = append(temp, tr...)
 		}
 	}
@@ -69,15 +69,17 @@ func (h *HittableList) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
 
 	current := &h.bvh
 
-	tris := levelTravelsal(current, current.depth, r, tMin, tMax)
+	tris := hitBVH(current, current.depth, r, tMin, tMax)
 
 	for i := 0; i < len(tris); i++ {
 		for j := 0; j < 2; j++ {
-			for k := 0; k < len(tris[i][j].triangles); k++ {
-				if tris[i][j].triangles[k].hit(r, tMin, closestSoFar, &tempRec) {
-					hitAnything = true
-					closestSoFar = tempRec.t
-					*rec = tempRec
+			if tris[i][j].bounds.hit(r, tMin, tMax) {
+				for k := 0; k < len(tris[i][j].triangles); k++ {
+					if tris[i][j].triangles[k].hit(r, tMin, closestSoFar, &tempRec) {
+						hitAnything = true
+						closestSoFar = tempRec.t
+						*rec = tempRec
+					}
 				}
 			}
 		}
@@ -148,7 +150,6 @@ func (tri *Triangle) hit(r Ray, tMin, tMax float64, rec *HitRecord) bool {
 }
 
 func (box *AABB) hit(r Ray, tMin, tMax float64) bool {
-	// func (box *AABB) hit(r Ray, tMin, tMax float64, t *float64) bool {
 	dirFrac := Tuple{
 		1.0 / r.direction.x,
 		1.0 / r.direction.y,
