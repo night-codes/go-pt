@@ -21,7 +21,7 @@ const (
 	depth   = 8
 )
 
-func color(r Ray, world *HittableList, d int, generator rand.Rand) Color {
+func colorize(r Ray, world *HittableList, d int, generator rand.Rand) Color {
 	rec := HitRecord{}
 	if world.hit(r, Epsilon, math.MaxFloat64, &rec) {
 		var attenuation Color
@@ -30,7 +30,7 @@ func color(r Ray, world *HittableList, d int, generator rand.Rand) Color {
 			if rec.material.material == Emission {
 				return rec.material.albedo
 			} else {
-				return attenuation.Mul(color(scattered, world, d+1, generator))
+				return attenuation.Mul(colorize(scattered, world, d+1, generator))
 			}
 		} else {
 			return Color{0, 0, 0}
@@ -305,7 +305,7 @@ func main() {
 						v := (float64(y) + RandFloat(*generator)) / float64(vsize)
 						r := camera.getRay(u, v, *generator)
 
-						col = color(r, &world, 0, *generator)
+						col = colorize(r, &world, 0, *generator)
 
 						buf[i][y*hsize+x] = buf[i][y*hsize+x].Add(col)
 					}
@@ -343,7 +343,7 @@ func main() {
 
 	fmt.Printf("\nSaving...\n")
 	// filename := fmt.Sprintf("frame_%d.ppm", 0)
-	filename := fmt.Sprintf("frame_%d.ppm", time.Now().UnixNano()/1e6)
+	filename := fmt.Sprintf("frame_%d.png", time.Now().UnixNano()/1e6)
 
-	SaveImage(canvas, hsize, vsize, 255, filename)
+	SaveImage(canvas, hsize, vsize, 255, filename, PNG)
 }
