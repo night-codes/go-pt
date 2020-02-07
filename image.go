@@ -22,7 +22,7 @@ func check(e error) {
 	}
 }
 
-func SaveImage(canvas []Color, width, height, maxValue int, fileName string, extension int) {
+func SaveImage(canvas []Color, width, height, maxValue int, fileName string, extension int, depth int) {
 	for y := height - 1; y >= 0; y-- {
 		for x := 0; x < width; x++ {
 			if canvas[y*width+x].r > 1.0 {
@@ -39,10 +39,10 @@ func SaveImage(canvas []Color, width, height, maxValue int, fileName string, ext
 		}
 	}
 
-	f, err := os.Create(fileName)
-	check(err)
-
 	if extension == PPM {
+		f, err := os.Create(fileName + ".ppm")
+		check(err)
+
 		w := bufio.NewWriter(f)
 		defer w.Flush()
 
@@ -58,12 +58,24 @@ func SaveImage(canvas []Color, width, height, maxValue int, fileName string, ext
 			check(err)
 		}
 	} else if extension == PNG {
-		image := image.NewRGBA(image.Rect(0, 0, width, height))
-		for y := height - 1; y >= 0; y-- {
-			for x := 0; x < width; x++ {
-				image.SetRGBA(x, width-y, color.RGBA{uint8(math.Sqrt(canvas[y*width+x].r) * 255.9), uint8(math.Sqrt(canvas[y*width+x].g) * 255.9), uint8(math.Sqrt(canvas[y*width+x].b) * 255.9), 255})
+		f, err := os.Create(fileName + ".png")
+		check(err)
+		if depth == 8 {
+			image := image.NewRGBA(image.Rect(0, 0, width, height))
+			for y := height - 1; y >= 0; y-- {
+				for x := 0; x < width; x++ {
+					image.SetRGBA(x, width-1-y, color.RGBA{uint8(math.Sqrt(canvas[y*width+x].r) * 255.9), uint8(math.Sqrt(canvas[y*width+x].g) * 255.9), uint8(math.Sqrt(canvas[y*width+x].b) * 255.9), 255})
+				}
 			}
+			png.Encode(f, image)
+		} else {
+			image := image.NewRGBA64(image.Rect(0, 0, width, height))
+			for y := height - 1; y >= 0; y-- {
+				for x := 0; x < width; x++ {
+					image.SetRGBA64(x, width-1-y, color.RGBA64{uint16(math.Sqrt(canvas[y*width+x].r) * 65535.9), uint16(math.Sqrt(canvas[y*width+x].g) * 65535.9), uint16(math.Sqrt(canvas[y*width+x].b) * 65535.9), 65535})
+				}
+			}
+			png.Encode(f, image)
 		}
-		png.Encode(f, image)
 	}
 }
