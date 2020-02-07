@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	hsize   = 512
-	vsize   = 512
-	samples = 1024
+	hsize   = 256
+	vsize   = 256
+	samples = 4096
 	depth   = 8
 )
 
@@ -199,7 +199,7 @@ func getBVH(triangles []Triangle, depth, x int) *BVH {
 	leftList := triangles[size:]
 	aabbLeft := getBoundingBox(leftList)
 	aabbRight := getBoundingBox(rightList)
-	if size/2 == 0 {
+	if size <= 1 {
 		return &BVH{
 			&BVH{}, &BVH{},
 			[2]Leaf{
@@ -236,32 +236,53 @@ func main() {
 	listSpheres := []Sphere{}
 	listTriangles := []Triangle{}
 
-	cameraPosition := Tuple{1.5, 1.5, 1.5, 0}
-	cameraDirection := Tuple{-1.5, 0, -1, 0}
+	cameraPosition := Tuple{-2, 0.8, 0, 0}
+	cameraDirection := Tuple{0, 0.5, 0, 0}
 	focusDistance := cameraDirection.Subtract(cameraPosition).Magnitude()
 	camera := getCamera(cameraPosition, cameraDirection, Tuple{0, 1, 0, 0}, 80, float64(hsize)/float64(vsize), 0.0, focusDistance)
 
-	file, err := os.Open("bunny.obj")
-	// file, err := os.Open("d.obj")
+	file, err := os.Open("light.obj")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	loadOBJ(file, &listTriangles, Material{Dielectric, Color{0.85, 0.1, 0.1}, 0, 1.45, false})
+	loadOBJ(file, &listTriangles, Material{Emission, Color{5, 5, 5}, 0, 1.45, 0, false})
 
-	fmt.Println("Building BVHs...")
+	file, err = os.Open("dragon.obj")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	loadOBJ(file, &listTriangles, Material{Plastic, Color{0.482, 0.858, 0.52}, 0, 0, 0.5, false})
+
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{-0.75, 0.25, 0, 0}, 0.25,
+		Material{Dielectric, Color{1, 1, 1}, 0, 1.45, 0.5, false},
+	})
+
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{-0.75, 0.25, -0.55, 0}, 0.25,
+		Material{Plastic, Color{1, 1, 1}, 0, 1.45, 0.5, false},
+	})
+
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{-0.75, 0.25, 0.55, 0}, 0.25,
+		Material{Metal, Color{1, 1, 1}, 0, 1.45, 0, false},
+	})
+
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{0.19054, 1.0445, -0.44794, 0}, 0.098,
+		Material{Emission, Color{1, 0.833, 0.259}.MulScalar(5), 0, 1.45, 0, false},
+	})
+
+	log.Println("Building BVHs...")
 	bvh := getBVH(listTriangles, 12, 0)
-	fmt.Println("Built BVHs")
+	log.Println("Built BVHs")
 
 	// BOTTOM
 	listSpheres = append(listSpheres, Sphere{
 		Tuple{0, -10000, 0, 0}, 10000,
-		Material{Lambertian, Color{1, 1, 1}, 0, 1.45, false},
-	})
-
-	listSpheres = append(listSpheres, Sphere{
-		Tuple{0, 3, 0, 0}, 0.5,
-		Material{Emission, Color{5, 5, 5}, 0, 1.45, false},
+		Material{Lambertian, Color{1, 1, 1}, 0, 1.45, 0, false},
 	})
 
 	world := HittableList{listSpheres, *bvh}
@@ -290,7 +311,7 @@ func main() {
 
 	doneSamples := 0
 
-	fmt.Printf("Rendering %dx%d at %d samples on %d cores\n", hsize, vsize, samples, cpus)
+	log.Printf("Rendering %d triangles and %d spheres at %dx%d at %d samples on %d cores\n", len(listTriangles), len(listSpheres), hsize, vsize, samples, cpus)
 
 	for i := 0; i < cpus; i++ {
 		go func(i int) {
@@ -312,9 +333,8 @@ func main() {
 				}
 
 				doneSamples++
-				fmt.Printf("\r%.2f%% (% 3d/% 3d)", float64(doneSamples)/float64(samples)*100, doneSamples, samples)
 				sampleTime := time.Since(sample)
-				fmt.Printf(" % 15s/sample, % 15s sample time, ETA: % 15s", sampleTime, sampleTime/(vsize*hsize), sampleTime*(time.Duration(samples)-time.Duration(doneSamples))/time.Duration(cpus))
+				fmt.Printf("\r%.2f%% (% 3d/% 3d) % 15s/sample, % 15s sample time, ETA: % 15s", float64(doneSamples)/float64(samples)*100, doneSamples, samples, sampleTime, sampleTime/(vsize*hsize), sampleTime*(time.Duration(samples)-time.Duration(doneSamples))/time.Duration(cpus))
 			}
 			ch <- 1
 		}(i)
@@ -343,7 +363,7 @@ func main() {
 
 	fmt.Printf("\nSaving...\n")
 	// filename := fmt.Sprintf("frame_%d.ppm", 0)
-	filename := fmt.Sprintf("frame_%d.png", time.Now().UnixNano()/1e6)
+	filename := fmt.Sprintf("frame_%d", time.Now().UnixNano()/1e6)
 
-	SaveImage(canvas, hsize, vsize, 255, filename, PNG)
+	SaveImage(canvas, hsize, vsize, 255, filename, PNG, 16)
 }
