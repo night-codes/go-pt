@@ -23,9 +23,6 @@ func RandInUnitHemisphere(generator rand.Rand, normal Tuple) Tuple {
 	p := Tuple{0, 0, 0, 0}
 	for {
 		p = (Tuple{RandFloat(generator), RandFloat(generator), RandFloat(generator), 1}.Subtract(Tuple{0.5, 0.5, 0.5, 0})).MulScalar(2.0)
-		// if p.Dot(normal) > 1 {
-		// 	normal = normal.MulScalar(-1)
-		// }
 		if p.Dot(normal)/(p.Magnitude()*normal.Magnitude()) >= 0.0 {
 			break
 		}
