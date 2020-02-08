@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	hsize   = 256
-	vsize   = 256
-	samples = 4096
+	hsize   = 1500
+	vsize   = 1500
+	samples = 8192
 	depth   = 8
 )
 
@@ -253,7 +253,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	loadOBJ(file, &listTriangles, Material{Plastic, Color{0.482, 0.858, 0.52}, 0, 0, 0.5, false})
+	loadOBJ(file, &listTriangles, Material{Plastic, Color{0.482, 0.858, 0.52}, 0, 1.5, 0.5, false})
 
 	listSpheres = append(listSpheres, Sphere{
 		Tuple{-0.75, 0.25, 0, 0}, 0.25,
@@ -272,6 +272,11 @@ func main() {
 
 	listSpheres = append(listSpheres, Sphere{
 		Tuple{0.19054, 1.0445, -0.44794, 0}, 0.098,
+		Material{Emission, Color{1, 0.833, 0.259}.MulScalar(5), 0, 1.45, 0, false},
+	})
+
+	listSpheres = append(listSpheres, Sphere{
+		Tuple{-0.6, 1.33, -0.6, 0}, 0.098,
 		Material{Emission, Color{1, 0.833, 0.259}.MulScalar(5), 0, 1.45, 0, false},
 	})
 
@@ -303,10 +308,13 @@ func main() {
 	start := time.Now()
 
 	samplesCPU := samples / cpus
+	remainder := 0
 
 	if samples < cpus {
 		cpus = samples
-		samplesCPU = samples
+		samplesCPU = 1
+	} else if samples%cpus != 0 {
+		remainder = samples % cpus
 	}
 
 	doneSamples := 0
@@ -345,8 +353,42 @@ func main() {
 	}
 	close(ch)
 
+	if remainder != 0 {
+		ch = make(chan int, cpus)
+		log.Printf("\nRendering additional %d samples...\n", remainder)
+		for i := 0; i < remainder; i++ {
+			go func(i int) {
+				source := rand.NewSource(time.Now().UnixNano())
+				generator := rand.New(source)
+				sample := time.Now()
+				for y := vsize - 1; y >= 0; y-- {
+					for x := 0; x < hsize; x++ {
+						col := Color{0, 0, 0}
+						u := (float64(x) + RandFloat(*generator)) / float64(hsize)
+						v := (float64(y) + RandFloat(*generator)) / float64(vsize)
+						r := camera.getRay(u, v, *generator)
+
+						col = colorize(r, &world, 0, *generator)
+
+						buf[i][y*hsize+x] = buf[i][y*hsize+x].Add(col)
+					}
+				}
+
+				doneSamples++
+				sampleTime := time.Since(sample)
+				fmt.Printf("\r%.2f%% (% 3d/% 3d) % 15s/sample, % 15s sample time, ETA: % 15s", float64(doneSamples)/float64(samples)*100, doneSamples, samples, sampleTime, sampleTime/(vsize*hsize), sampleTime*(time.Duration(samples)-time.Duration(doneSamples))/time.Duration(cpus))
+				ch <- 1
+			}(i)
+		}
+
+		for i := 0; i < remainder; i++ {
+			<-ch
+		}
+		close(ch)
+	}
+
 	elapsed := time.Since(start)
-	log.Printf("Rendering took %s", elapsed)
+	log.Printf("\nRendering took %s\n", elapsed)
 	for i := 0; i < cpus; i++ {
 		for y := 0; y < vsize; y++ {
 			for x := 0; x < hsize; x++ {
@@ -361,7 +403,7 @@ func main() {
 		}
 	}
 
-	fmt.Printf("\nSaving...\n")
+	fmt.Printf("Saving...\n")
 	// filename := fmt.Sprintf("frame_%d.ppm", 0)
 	filename := fmt.Sprintf("frame_%d", time.Now().UnixNano()/1e6)
 
